@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+
+<head>
+  <meta charset="utf-8">
+  <title>書籍清單</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+
+  <h1>書籍 <span>清單</span></h1>
+
+  <!-- ===== 統計面板 ===== -->
+  <div class="stats">
+    <div class="stat-card total">
+      <div class="val" id="s-total">0</div>
+      <div class="lbl">總計</div>
+    </div>
+    <div class="stat-card read">
+      <div class="val" id="s-read">0</div>
+      <div class="lbl">已讀</div>
+    </div>
+    <div class="stat-card prog">
+      <div class="val" id="s-prog">0</div>
+      <div class="lbl">進行中</div>
+    </div>
+    <div class="stat-card toread">
+      <div class="val" id="s-tor">0</div>
+      <div class="lbl">待讀</div>
+    </div>
+  </div>
+
+  <!-- ===== 工具列 ===== -->
+  <div class="toolbar">
+    <div class="search-wrap">
+      <span class="ico">🔍</span>
+      <input id="searchInput" type="text" placeholder="搜尋書名、作者、類別…" oninput="applyFilter()">
+    </div>
+    <select class="filter-select" id="filterStatus" onchange="applyFilter()">
+      <option value="">全部狀態</option>
+      <option value="read">已讀</option>
+      <option value="in-progress">進行中</option>
+      <option value="to-read">待讀</option>
+    </select>
+    <select class="filter-select" id="filterRate" onchange="applyFilter()">
+      <option value="">全部評分</option>
+      <option value="3">⭐⭐⭐ 三顆</option>
+      <option value="2">⭐⭐ 二顆以上</option>
+      <option value="1">⭐ 一顆以上</option>
+      <option value="0">尚未評分</option>
+    </select>
+    <button class="btn-add" onclick="openModal()">＋ 新增書籍</button>
+  </div>
+
+  <!-- ===== 主表格 ===== -->
+  <table id="bookTable">
+    <thead>
+      <tr>
+        <th onclick="sortTable(0)">書名 <span class="sort-icon">↕</span></th>
+        <th onclick="sortTable(1)">作者 <span class="sort-icon">↕</span></th>
+        <th onclick="sortTable(2)">類別 <span class="sort-icon">↕</span></th>
+        <th onclick="sortTable(3)">狀態 <span class="sort-icon">↕</span></th>
+        <th onclick="sortTable(4)">評分 <span class="sort-icon">↕</span></th>
+        <th>操作</th>
+      </tr>
+    </thead>
+    <tbody id="tbody"></tbody>
+  </table>
+
+  <!-- ===== Toast ===== -->
+  <div class="toast" id="toast">✓ 已自動儲存</div>
+
+  <!-- ===== Modal ===== -->
+  <div class="overlay" id="overlay">
+    <div class="modal">
+      <h2 id="modalTitle">新增書籍</h2>
+      <div class="form-group"><label>書名</label><input id="f-title" type="text" placeholder="請輸入書名"></div>
+      <div class="form-group"><label>作者</label><input id="f-author" type="text" placeholder="請輸入作者"></div>
+      <div class="form-group"><label>類別</label><input id="f-genre" type="text" placeholder="小說、推理、奇幻…"></div>
+      <div class="form-group">
+        <label>狀態</label>
+        <select id="f-status">
+          <option value="read">已讀</option>
+          <option value="in-progress">進行中</option>
+          <option value="to-read">待讀</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>評分(0~3顆)</label>
+        <div class="star-picker">
+          <button class="star-btn" data-v="1" onclick="setStar(1)">●</button>
+          <button class="star-btn" data-v="2" onclick="setStar(2)">●</button>
+          <button class="star-btn" data-v="3" onclick="setStar(3)">●</button>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="closeModal()">取消</button>
+        <button class="btn-save" onclick="saveBook()">儲存</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const STATUS_LABEL = { "read": "已讀", "in-progress": "進行中", "to-read": "待讀" };
+    const STATUS_ORDER = { "已讀": 0, "進行中": 1, "待讀": 2 };
+    const RATE_WORD = ["", "one", "two", "three"];
+    const STORAGE_KEY = "bookInventory_v1";
+
+    const DEFAULT_BOOKS = [
+      { title: "《解憂雜貨店》", author: "東野圭吾", genre: "小說", status: "read", rate: 3 },
+      { title: "《波西傑克森》系列", author: "瑞克·萊爾頓", genre: "奇幻", status: "read", rate: 2 },
+      { title: "《占星術殺人事件》", author: "島田莊司", genre: "推理", status: "read", rate: 3 },
+      { title: "《空洞的十字架》", author: "東野圭吾", genre: "推理", status: "read", rate: 3 },
+      { title: "《金閣寺》", author: "三島由紀夫", genre: "小說", status: "in-progress", rate: 0 },
+      { title: "《穹盧下的魔女》", author: "Tomato Soup", genre: "奇幻", status: "in-progress", rate: 0 },
+      { title: "《惡之華》", author: "波特萊爾", genre: "詩集", status: "to-read", rate: 0 },
+    ];
+
+    let books = [], editIdx = -1, starVal = 0, sortCol = -1, asc = true;
+    let filterText = "", filterStatus = "", filterRate = "";
+
+    async function loadData() {
+      try {
+        const res = await window.storage.get(STORAGE_KEY);
+        books = res ? JSON.parse(res.value) : [...DEFAULT_BOOKS];
+      } catch { books = [...DEFAULT_BOOKS]; }
+      render(); updateStats();
+    }
+
+    let toastTimer = null;
+    async function saveData() {
+      try { await window.storage.set(STORAGE_KEY, JSON.stringify(books)); showToast("✓ 已自動儲存"); }
+      catch { showToast("⚠ 儲存失敗"); }
+    }
+
+    function showToast(msg, duration = 2000) {
+      const el = document.getElementById("toast");
+      el.textContent = msg; el.classList.add("show");
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => el.classList.remove("show"), duration);
+    }
+
+    function rateHTML(r) {
+      const word = RATE_WORD[r] || "";
+      return `<span class="${word ? `rate ${word}` : "rate"}"><span></span><span></span><span></span></span>`;
+    }
+
+    function updateStats() {
+      document.getElementById("s-total").textContent = books.length;
+      document.getElementById("s-read").textContent = books.filter(b => b.status === "read").length;
+      document.getElementById("s-prog").textContent = books.filter(b => b.status === "in-progress").length;
+      document.getElementById("s-tor").textContent = books.filter(b => b.status === "to-read").length;
+    }
+
+    function getFiltered() {
+      return books.map((b, i) => ({ book: b, origIdx: i })).filter(({ book: b }) => {
+        const kw = filterText;
+        const matchText = !kw || b.title.toLowerCase().includes(kw) || b.author.toLowerCase().includes(kw) || b.genre.toLowerCase().includes(kw);
+        const matchStatus = !filterStatus || b.status === filterStatus;
+        let matchRate = true;
+        if (filterRate !== "") {
+          const rv = parseInt(filterRate);
+          matchRate = rv === 0 ? b.rate === 0 : b.rate >= rv;
+        }
+        return matchText && matchStatus && matchRate;
+      });
+    }
+
+    function render() {
+      const tbody = document.getElementById("tbody");
+      const filtered = getFiltered();
+      if (!filtered.length) {
+        tbody.innerHTML = `<tr class="empty-row"><td colspan="6">找不到符合的書籍 🔍</td></tr>`;
+        return;
+      }
+      tbody.innerHTML = filtered.map(({ book: b, origIdx }) => `
+        <tr class="${b.status}">
+          <td>${b.title}</td><td>${b.author}</td><td>${b.genre}</td>
+          <td><span class="status">${STATUS_LABEL[b.status]}</span></td>
+          <td data-rate="${b.rate}">${rateHTML(b.rate)}</td>
+          <td class="action-cell">
+            <button class="btn-edit" onclick="openModal(${origIdx})">✏ 編輯</button>
+            <button class="btn-del"  onclick="deleteBook(${origIdx})">✕ 刪除</button>
+          </td>
+        </tr>`).join("");
+    }
+
+    function applyFilter() {
+      filterText = document.getElementById("searchInput").value.trim().toLowerCase();
+      filterStatus = document.getElementById("filterStatus").value;
+      filterRate = document.getElementById("filterRate").value;
+      render();
+    }
+
+    function setStar(v) {
+      starVal = starVal === v ? 0 : v;
+      document.querySelectorAll(".star-btn").forEach(btn => {
+        btn.classList.toggle("active", parseInt(btn.dataset.v) <= starVal);
+      });
+    }
+
+    function openModal(idx = -1) {
+      editIdx = idx; starVal = 0;
+      document.querySelectorAll(".star-btn").forEach(b => b.classList.remove("active"));
+      if (idx === -1) {
+        document.getElementById("modalTitle").textContent = "新增書籍";
+        ["f-title", "f-author", "f-genre"].forEach(id => document.getElementById(id).value = "");
+        document.getElementById("f-status").value = "to-read";
+      } else {
+        const b = books[idx];
+        document.getElementById("modalTitle").textContent = "編輯書籍";
+        document.getElementById("f-title").value = b.title;
+        document.getElementById("f-author").value = b.author;
+        document.getElementById("f-genre").value = b.genre;
+        document.getElementById("f-status").value = b.status;
+        starVal = b.rate;
+        document.querySelectorAll(".star-btn").forEach(btn => {
+          btn.classList.toggle("active", parseInt(btn.dataset.v) <= starVal);
+        });
+      }
+      document.getElementById("overlay").classList.add("open");
+    }
+
+    function closeModal() { document.getElementById("overlay").classList.remove("open"); }
+
+    function saveBook() {
+      const title = document.getElementById("f-title").value.trim();
+      const author = document.getElementById("f-author").value.trim();
+      const genre = document.getElementById("f-genre").value.trim();
+      const status = document.getElementById("f-status").value;
+      if (!title) { alert("書名不可空白"); return; }
+      const entry = { title, author, genre, status, rate: starVal };
+      if (editIdx === -1) books.push(entry); else books[editIdx] = entry;
+      closeModal(); render(); updateStats(); saveData();
+    }
+
+    function deleteBook(idx) {
+      if (!confirm(`確定刪除「${books[idx].title}」？`)) return;
+      books.splice(idx, 1); render(); updateStats(); saveData();
+    }
+
+    function sortTable(col) {
+      const ths = document.querySelectorAll("th");
+      if (sortCol === col) asc = !asc; else { sortCol = col; asc = true; }
+      ths.forEach((th, i) => {
+        th.classList.toggle("active", i === col);
+        const icon = th.querySelector(".sort-icon");
+        if (icon) icon.textContent = i === col ? (asc ? "↑" : "↓") : "↕";
+      });
+      books.sort((a, b) => {
+        let va, vb;
+        if (col === 3) { va = STATUS_ORDER[STATUS_LABEL[a.status]] ?? 99; vb = STATUS_ORDER[STATUS_LABEL[b.status]] ?? 99; }
+        else if (col === 4) { va = a.rate; vb = b.rate; }
+        else { const k = ["title", "author", "genre"]; va = a[k[col]]; vb = b[k[col]]; }
+        return va < vb ? (asc ? -1 : 1) : va > vb ? (asc ? 1 : -1) : 0;
+      });
+      render();
+    }
+
+    document.getElementById("overlay").addEventListener("click", e => {
+      if (e.target === e.currentTarget) closeModal();
+    });
+
+    loadData();
+  </script>
+</body>
+
+</html>
