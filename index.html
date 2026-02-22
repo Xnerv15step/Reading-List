@@ -4,45 +4,77 @@
 <head>
   <meta charset="utf-8">
   <title>書籍清單</title>
+  <!-- 引入外部樣式表 -->
   <link rel="stylesheet" href="css/style.css">
 </head>
 
 <body>
 
+  <!-- ==========================================
+       頁面主標題
+       「清單」用 <span> 包住，讓 CSS 可以單獨上色
+  =========================================== -->
   <h1>書籍 <span>清單</span></h1>
 
-  <!-- ===== 統計面板 ===== -->
+
+  <!-- ==========================================
+       統計面板
+       顯示「總計 / 已讀 / 進行中 / 待讀」四個數字。
+       數字 id（s-total 等）由 JS 的 updateStats() 動態寫入。
+  =========================================== -->
   <div class="stats">
+
     <div class="stat-card total">
-      <div class="val" id="s-total">0</div>
+      <div class="val" id="s-total">0</div> <!-- 所有書籍總數 -->
       <div class="lbl">總計</div>
     </div>
+
     <div class="stat-card read">
-      <div class="val" id="s-read">0</div>
+      <div class="val" id="s-read">0</div> <!-- status === "read" 的數量 -->
       <div class="lbl">已讀</div>
     </div>
+
     <div class="stat-card prog">
-      <div class="val" id="s-prog">0</div>
+      <div class="val" id="s-prog">0</div> <!-- status === "in-progress" 的數量 -->
       <div class="lbl">進行中</div>
     </div>
+
     <div class="stat-card toread">
-      <div class="val" id="s-tor">0</div>
+      <div class="val" id="s-tor">0</div> <!-- status === "to-read" 的數量 -->
       <div class="lbl">待讀</div>
     </div>
+
   </div>
 
-  <!-- ===== 工具列 ===== -->
+
+  <!-- ==========================================
+       工具列
+       包含：關鍵字搜尋、狀態篩選、評分篩選、新增按鈕。
+       每個控制元件觸發 applyFilter() 即時重新過濾表格。
+  =========================================== -->
   <div class="toolbar">
+
+    <!-- 搜尋欄：圖示以 .ico span 絕對定位在輸入框左側 -->
     <div class="search-wrap">
       <span class="ico">🔍</span>
-      <input id="searchInput" type="text" placeholder="搜尋書名、作者、類別…" oninput="applyFilter()">
+      <input id="searchInput" type="text" placeholder="搜尋書名、作者、類別…" oninput="applyFilter()" <!-- 每次鍵入立即篩選 -->
+      >
     </div>
+
+    <!-- 狀態篩選下拉選單；value="" 代表「不限狀態」 -->
     <select class="filter-select" id="filterStatus" onchange="applyFilter()">
       <option value="">全部狀態</option>
       <option value="read">已讀</option>
       <option value="in-progress">進行中</option>
       <option value="to-read">待讀</option>
     </select>
+
+    <!-- 評分篩選下拉選單
+         value="3" → rate >= 3
+         value="2" → rate >= 2
+         value="1" → rate >= 1
+         value="0" → rate === 0（尚未評分）
+         value=""  → 不限評分 -->
     <select class="filter-select" id="filterRate" onchange="applyFilter()">
       <option value="">全部評分</option>
       <option value="3">⭐⭐⭐ 三顆</option>
@@ -50,34 +82,73 @@
       <option value="1">⭐ 一顆以上</option>
       <option value="0">尚未評分</option>
     </select>
+
+    <!-- 開啟新增書籍 Modal；不傳參數，openModal() 預設 idx = -1 -->
     <button class="btn-add" onclick="openModal()">＋ 新增書籍</button>
+
   </div>
 
-  <!-- ===== 主表格 ===== -->
+
+  <!-- ==========================================
+       主表格
+       表頭點擊欄位可排序（呼叫 sortTable(欄位索引)）。
+       tbody#tbody 由 render() 動態產生，HTML 中不預填資料列。
+  =========================================== -->
   <table id="bookTable">
     <thead>
       <tr>
+        <!-- 各欄索引：0=書名, 1=作者, 2=類別, 3=狀態, 4=評分 -->
         <th onclick="sortTable(0)">書名 <span class="sort-icon">↕</span></th>
         <th onclick="sortTable(1)">作者 <span class="sort-icon">↕</span></th>
         <th onclick="sortTable(2)">類別 <span class="sort-icon">↕</span></th>
         <th onclick="sortTable(3)">狀態 <span class="sort-icon">↕</span></th>
         <th onclick="sortTable(4)">評分 <span class="sort-icon">↕</span></th>
-        <th>操作</th>
+        <th>操作</th><!-- 操作欄不可排序，不加 onclick -->
       </tr>
     </thead>
-    <tbody id="tbody"></tbody>
+    <tbody id="tbody">
+      <!-- 由 render() 動態注入 <tr> 列 -->
+    </tbody>
   </table>
 
-  <!-- ===== Toast ===== -->
+
+  <!-- ==========================================
+       Toast 提示訊息
+       固定在右下角，JS 透過 .show class 控制淡入淡出。
+  =========================================== -->
   <div class="toast" id="toast">✓ 已自動儲存</div>
 
-  <!-- ===== Modal ===== -->
+
+  <!-- ==========================================
+       Modal 對話框（新增 / 編輯書籍）
+       .overlay 作為半透明遮罩，點擊遮罩本身可關閉。
+       加上 .open class → display: flex 使其顯示。
+  =========================================== -->
   <div class="overlay" id="overlay">
     <div class="modal">
+
+      <!-- 標題由 openModal() 動態設為「新增書籍」或「編輯書籍」 -->
       <h2 id="modalTitle">新增書籍</h2>
-      <div class="form-group"><label>書名</label><input id="f-title" type="text" placeholder="請輸入書名"></div>
-      <div class="form-group"><label>作者</label><input id="f-author" type="text" placeholder="請輸入作者"></div>
-      <div class="form-group"><label>類別</label><input id="f-genre" type="text" placeholder="小說、推理、奇幻…"></div>
+
+      <!-- 書名（必填，saveBook() 會驗證不可空白） -->
+      <div class="form-group">
+        <label>書名</label>
+        <input id="f-title" type="text" placeholder="請輸入書名">
+      </div>
+
+      <!-- 作者 -->
+      <div class="form-group">
+        <label>作者</label>
+        <input id="f-author" type="text" placeholder="請輸入作者">
+      </div>
+
+      <!-- 類別 -->
+      <div class="form-group">
+        <label>類別</label>
+        <input id="f-genre" type="text" placeholder="小說、推理、奇幻…">
+      </div>
+
+      <!-- 閱讀狀態下拉選單 -->
       <div class="form-group">
         <label>狀態</label>
         <select id="f-status">
@@ -86,6 +157,10 @@
           <option value="to-read">待讀</option>
         </select>
       </div>
+
+      <!-- 星星評分選擇器（0–3 顆）
+           data-v：該按鈕代表的分值。
+           setStar(v)：點同一顆可取消（歸零），否則設為 v。 -->
       <div class="form-group">
         <label>評分(0~3顆)</label>
         <div class="star-picker">
@@ -94,19 +169,40 @@
           <button class="star-btn" data-v="3" onclick="setStar(3)">●</button>
         </div>
       </div>
+
+      <!-- 底部操作按鈕 -->
       <div class="modal-actions">
         <button class="btn-cancel" onclick="closeModal()">取消</button>
         <button class="btn-save" onclick="saveBook()">儲存</button>
       </div>
+
     </div>
   </div>
 
+
   <script>
-    const STATUS_LABEL = { "read": "已讀", "in-progress": "進行中", "to-read": "待讀" };
+    // ============================================================
+    // 常數
+    // ============================================================
+
+    // 狀態英文 key → 中文顯示標籤（用於 render 表格 & 統計）
+    const STATUS_LABEL = {
+      "read": "已讀",
+      "in-progress": "進行中",
+      "to-read": "待讀"
+    };
+
+    // 排序時各狀態的數字權重（數字越小排越前面）
     const STATUS_ORDER = { "已讀": 0, "進行中": 1, "待讀": 2 };
+
+    // 評分值 0–3 對應的 CSS class 後綴（空字串 = 無評分）
+    // 用法：span class="rate two" → 前兩顆圓點填色
     const RATE_WORD = ["", "one", "two", "three"];
+
+    // 持久化儲存的 key；加版本號方便未來 schema 升級時清除舊資料
     const STORAGE_KEY = "bookInventory_v1";
 
+    // 首次載入或無儲存資料時使用的預設書單
     const DEFAULT_BOOKS = [
       { title: "《解憂雜貨店》", author: "東野圭吾", genre: "小說", status: "read", rate: 3 },
       { title: "《波西傑克森》系列", author: "瑞克·萊爾頓", genre: "奇幻", status: "read", rate: 2 },
@@ -117,35 +213,82 @@
       { title: "《惡之華》", author: "波特萊爾", genre: "詩集", status: "to-read", rate: 0 },
     ];
 
-    let books = [], editIdx = -1, starVal = 0, sortCol = -1, asc = true;
-    let filterText = "", filterStatus = "", filterRate = "";
 
+    // ============================================================
+    // 應用程式狀態變數
+    // ============================================================
+
+    let books = [];    // 書籍陣列（所有資料的唯一來源）
+    let editIdx = -1;  // 目前編輯的書籍索引；-1 代表新增模式
+    let starVal = 0;   // Modal 內目前選取的星星數（0–3）
+    let sortCol = -1;  // 目前排序欄位索引；-1 代表尚未排序
+    let asc = true;    // 排序方向：true = 升序，false = 降序
+
+    // 三個篩選條件（由 applyFilter() 讀取 DOM 後更新）
+    let filterText = "";  // 關鍵字（書名 / 作者 / 類別）
+    let filterStatus = "";  // 閱讀狀態 key（"read" 等）或 ""（不限）
+    let filterRate = "";  // 評分門檻字串或 ""（不限）
+
+
+    // ============================================================
+    // loadData：從持久化儲存讀取書單，失敗則用預設書單
+    // ============================================================
     async function loadData() {
       try {
         const res = await window.storage.get(STORAGE_KEY);
+        // res 為 null 表示 key 不存在（首次使用）→ 複製預設書單
         books = res ? JSON.parse(res.value) : [...DEFAULT_BOOKS];
-      } catch { books = [...DEFAULT_BOOKS]; }
-      render(); updateStats();
+      } catch {
+        // JSON 解析失敗或其他錯誤 → 安全退回預設書單
+        books = [...DEFAULT_BOOKS];
+      }
+      render();
+      updateStats();
     }
 
-    let toastTimer = null;
+
+    // ============================================================
+    // saveData：將書單序列化後寫入持久化儲存，並顯示 Toast
+    // ============================================================
+    let toastTimer = null; // 防止多次快速儲存時 Toast 重複計時
+
     async function saveData() {
-      try { await window.storage.set(STORAGE_KEY, JSON.stringify(books)); showToast("✓ 已自動儲存"); }
-      catch { showToast("⚠ 儲存失敗"); }
+      try {
+        await window.storage.set(STORAGE_KEY, JSON.stringify(books));
+        showToast("✓ 已自動儲存");
+      } catch {
+        showToast("⚠ 儲存失敗");
+      }
     }
 
+
+    // ============================================================
+    // showToast：顯示右下角提示訊息，duration ms 後自動消失
+    // ============================================================
     function showToast(msg, duration = 2000) {
       const el = document.getElementById("toast");
-      el.textContent = msg; el.classList.add("show");
-      clearTimeout(toastTimer);
+      el.textContent = msg;
+      el.classList.add("show");        // CSS transition 觸發淡入上滑
+      clearTimeout(toastTimer);        // 若前一個計時器未結束，先清除
       toastTimer = setTimeout(() => el.classList.remove("show"), duration);
     }
 
+
+    // ============================================================
+    // rateHTML：依評分值產生三顆評分圓點的 HTML 字串
+    // 範例：rateHTML(2) → <span class="rate two">…</span>
+    // CSS 用 class 名稱決定哪幾顆圓點要填色
+    // ============================================================
     function rateHTML(r) {
-      const word = RATE_WORD[r] || "";
+      const word = RATE_WORD[r] || "";  // 取得 "one" / "two" / "three" 或 ""
+      // 三個子 <span> 代表三顆圓點，CSS 選擇器控制填色數量
       return `<span class="${word ? `rate ${word}` : "rate"}"><span></span><span></span><span></span></span>`;
     }
 
+
+    // ============================================================
+    // updateStats：重新計算各狀態書籍數量並寫入統計面板
+    // ============================================================
     function updateStats() {
       document.getElementById("s-total").textContent = books.length;
       document.getElementById("s-read").textContent = books.filter(b => b.status === "read").length;
@@ -153,30 +296,60 @@
       document.getElementById("s-tor").textContent = books.filter(b => b.status === "to-read").length;
     }
 
+
+    // ============================================================
+    // getFiltered：依目前三個篩選條件過濾 books
+    // 回傳 [{ book, origIdx }, ...] 結構，保留原始索引
+    // → 讓 render() 在按鈕 onclick 中能用 origIdx 操作正確書籍
+    // ============================================================
     function getFiltered() {
-      return books.map((b, i) => ({ book: b, origIdx: i })).filter(({ book: b }) => {
-        const kw = filterText;
-        const matchText = !kw || b.title.toLowerCase().includes(kw) || b.author.toLowerCase().includes(kw) || b.genre.toLowerCase().includes(kw);
-        const matchStatus = !filterStatus || b.status === filterStatus;
-        let matchRate = true;
-        if (filterRate !== "") {
-          const rv = parseInt(filterRate);
-          matchRate = rv === 0 ? b.rate === 0 : b.rate >= rv;
-        }
-        return matchText && matchStatus && matchRate;
-      });
+      return books
+        .map((b, i) => ({ book: b, origIdx: i }))  // 先記錄原始索引
+        .filter(({ book: b }) => {
+
+          // --- 關鍵字比對（書名 / 作者 / 類別，任一符合即通過）---
+          const kw = filterText;
+          const matchText = !kw
+            || b.title.toLowerCase().includes(kw)
+            || b.author.toLowerCase().includes(kw)
+            || b.genre.toLowerCase().includes(kw);
+
+          // --- 狀態比對（filterStatus 為空字串時略過此條件）---
+          const matchStatus = !filterStatus || b.status === filterStatus;
+
+          // --- 評分比對 ---
+          let matchRate = true;
+          if (filterRate !== "") {
+            const rv = parseInt(filterRate);
+            // rv === 0：僅顯示「尚未評分」（rate === 0）
+            // rv >= 1：顯示評分大於等於 rv 的書籍
+            matchRate = rv === 0 ? b.rate === 0 : b.rate >= rv;
+          }
+
+          return matchText && matchStatus && matchRate;
+        });
     }
 
+
+    // ============================================================
+    // render：根據篩選結果重新產生 tbody 的所有 <tr>
+    // ============================================================
     function render() {
       const tbody = document.getElementById("tbody");
       const filtered = getFiltered();
+
+      // 無符合結果時顯示提示訊息列
       if (!filtered.length) {
         tbody.innerHTML = `<tr class="empty-row"><td colspan="6">找不到符合的書籍 🔍</td></tr>`;
         return;
       }
+
+      // 用 origIdx（原始陣列索引）讓編輯 / 刪除按鈕能正確定位書籍
       tbody.innerHTML = filtered.map(({ book: b, origIdx }) => `
         <tr class="${b.status}">
-          <td>${b.title}</td><td>${b.author}</td><td>${b.genre}</td>
+          <td>${b.title}</td>
+          <td>${b.author}</td>
+          <td>${b.genre}</td>
           <td><span class="status">${STATUS_LABEL[b.status]}</span></td>
           <td data-rate="${b.rate}">${rateHTML(b.rate)}</td>
           <td class="action-cell">
@@ -186,6 +359,11 @@
         </tr>`).join("");
     }
 
+
+    // ============================================================
+    // applyFilter：讀取目前 DOM 控制元件的值，更新篩選條件後重繪
+    // 由搜尋欄（oninput）與下拉選單（onchange）觸發
+    // ============================================================
     function applyFilter() {
       filterText = document.getElementById("searchInput").value.trim().toLowerCase();
       filterStatus = document.getElementById("filterStatus").value;
@@ -193,75 +371,173 @@
       render();
     }
 
+
+    // ============================================================
+    // setStar：點擊星星按鈕時更新 starVal 並同步按鈕樣式
+    // 邏輯：點擊已選中的同一顆 → 取消（歸零）；否則設為該值
+    // ============================================================
     function setStar(v) {
-      starVal = starVal === v ? 0 : v;
+      starVal = (starVal === v) ? 0 : v;
+
+      // 重新套用所有星星按鈕的 .active 狀態
       document.querySelectorAll(".star-btn").forEach(btn => {
+        // 分值 <= starVal 的按鈕都要亮起（例如選 2 → 第 1、2 顆亮）
         btn.classList.toggle("active", parseInt(btn.dataset.v) <= starVal);
       });
     }
 
+
+    // ============================================================
+    // openModal：開啟 Modal
+    // idx = -1 → 新增模式（清空表單）
+    // idx >= 0 → 編輯模式（帶入該書籍資料）
+    // ============================================================
     function openModal(idx = -1) {
-      editIdx = idx; starVal = 0;
+      editIdx = idx;
+      starVal = 0;
+
+      // 先重置所有星星按鈕為未選取狀態
       document.querySelectorAll(".star-btn").forEach(b => b.classList.remove("active"));
+
       if (idx === -1) {
+        // 新增模式：清空欄位，狀態預設「待讀」
         document.getElementById("modalTitle").textContent = "新增書籍";
-        ["f-title", "f-author", "f-genre"].forEach(id => document.getElementById(id).value = "");
+        ["f-title", "f-author", "f-genre"].forEach(id =>
+          document.getElementById(id).value = ""
+        );
         document.getElementById("f-status").value = "to-read";
       } else {
+        // 編輯模式：將書籍資料填入表單
         const b = books[idx];
         document.getElementById("modalTitle").textContent = "編輯書籍";
         document.getElementById("f-title").value = b.title;
         document.getElementById("f-author").value = b.author;
         document.getElementById("f-genre").value = b.genre;
         document.getElementById("f-status").value = b.status;
+
+        // 恢復原本評分並點亮對應星星
         starVal = b.rate;
         document.querySelectorAll(".star-btn").forEach(btn => {
           btn.classList.toggle("active", parseInt(btn.dataset.v) <= starVal);
         });
       }
+
+      // 加上 .open → CSS 將 display 切為 flex，Modal 顯示
       document.getElementById("overlay").classList.add("open");
     }
 
-    function closeModal() { document.getElementById("overlay").classList.remove("open"); }
 
+    // ============================================================
+    // closeModal：移除 .open class，隱藏 Modal
+    // ============================================================
+    function closeModal() {
+      document.getElementById("overlay").classList.remove("open");
+    }
+
+
+    // ============================================================
+    // saveBook：驗證並儲存書籍（新增 or 更新）
+    // ============================================================
     function saveBook() {
       const title = document.getElementById("f-title").value.trim();
       const author = document.getElementById("f-author").value.trim();
       const genre = document.getElementById("f-genre").value.trim();
       const status = document.getElementById("f-status").value;
+
+      // 書名為必填欄位
       if (!title) { alert("書名不可空白"); return; }
+
       const entry = { title, author, genre, status, rate: starVal };
-      if (editIdx === -1) books.push(entry); else books[editIdx] = entry;
-      closeModal(); render(); updateStats(); saveData();
+
+      if (editIdx === -1) {
+        books.push(entry);       // 新增：附加到陣列末端
+      } else {
+        books[editIdx] = entry;  // 編輯：直接覆蓋原有物件
+      }
+
+      closeModal();
+      render();
+      updateStats();
+      saveData();
     }
 
+
+    // ============================================================
+    // deleteBook：確認後刪除指定索引的書籍
+    // ============================================================
     function deleteBook(idx) {
       if (!confirm(`確定刪除「${books[idx].title}」？`)) return;
-      books.splice(idx, 1); render(); updateStats(); saveData();
+
+      books.splice(idx, 1);  // 從 books 陣列中移除該元素
+      render();
+      updateStats();
+      saveData();
     }
 
+
+    // ============================================================
+    // sortTable：點擊表頭欄位時排序
+    // col：欄位索引（0=書名, 1=作者, 2=類別, 3=狀態, 4=評分）
+    // 同一欄再次點擊 → 切換升/降序；不同欄 → 重置為升序
+    // ============================================================
     function sortTable(col) {
       const ths = document.querySelectorAll("th");
-      if (sortCol === col) asc = !asc; else { sortCol = col; asc = true; }
+
+      if (sortCol === col) {
+        asc = !asc;   // 同欄：切換方向
+      } else {
+        sortCol = col;
+        asc = true;   // 換欄：預設升序
+      }
+
+      // 更新表頭視覺：高亮目前排序欄，並更新箭頭符號
       ths.forEach((th, i) => {
         th.classList.toggle("active", i === col);
         const icon = th.querySelector(".sort-icon");
-        if (icon) icon.textContent = i === col ? (asc ? "↑" : "↓") : "↕";
+        if (icon) icon.textContent = (i === col) ? (asc ? "↑" : "↓") : "↕";
       });
+
+      // 排序 books 陣列（直接修改源資料，render() 再呈現）
       books.sort((a, b) => {
         let va, vb;
-        if (col === 3) { va = STATUS_ORDER[STATUS_LABEL[a.status]] ?? 99; vb = STATUS_ORDER[STATUS_LABEL[b.status]] ?? 99; }
-        else if (col === 4) { va = a.rate; vb = b.rate; }
-        else { const k = ["title", "author", "genre"]; va = a[k[col]]; vb = b[k[col]]; }
-        return va < vb ? (asc ? -1 : 1) : va > vb ? (asc ? 1 : -1) : 0;
+
+        if (col === 3) {
+          // 狀態欄：依 STATUS_ORDER 數字比較，而非字串
+          va = STATUS_ORDER[STATUS_LABEL[a.status]] ?? 99;
+          vb = STATUS_ORDER[STATUS_LABEL[b.status]] ?? 99;
+        } else if (col === 4) {
+          // 評分欄：直接比較數值
+          va = a.rate;
+          vb = b.rate;
+        } else {
+          // 文字欄（書名 / 作者 / 類別）：字串比較
+          const keyMap = ["title", "author", "genre"];
+          va = a[keyMap[col]];
+          vb = b[keyMap[col]];
+        }
+
+        return va < vb ? (asc ? -1 : 1)
+          : va > vb ? (asc ? 1 : -1)
+            : 0;
       });
+
       render();
     }
 
+
+    // ============================================================
+    // 點擊遮罩背景（overlay）時關閉 Modal
+    // 用 e.target === e.currentTarget 確保只有點到遮罩本身才觸發，
+    // 點擊 Modal 內部元素不會意外關閉
+    // ============================================================
     document.getElementById("overlay").addEventListener("click", e => {
       if (e.target === e.currentTarget) closeModal();
     });
 
+
+    // ============================================================
+    // 初始化：頁面載入後讀取資料並渲染
+    // ============================================================
     loadData();
   </script>
 </body>
