@@ -519,3 +519,14 @@ tr:hover .action-cell { opacity: 1; }
 
 .btn-cancel:hover { background: rgba(255, 255, 255, .14); }
 .btn-save:hover   { opacity: .85; }
+
+
+/* 手機 */
+@media (max-width: 768px) {
+  .container { flex-direction: column; }
+}
+
+/* 桌機 */
+@media (min-width: 1024px) {
+  .container { flex-direction: row; }
+}

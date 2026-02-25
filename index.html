@@ -3,9 +3,10 @@
 
 <head>
   <meta charset="utf-8">
-  <title>書籍清單</title>
+  <title>閱讀清單</title>
   <!-- 引入外部樣式表 -->
   <link rel="stylesheet" href="css/style.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
 
 <body>
@@ -14,7 +15,7 @@
        頁面主標題
        「清單」用 <span> 包住，讓 CSS 可以單獨上色
   =========================================== -->
-  <h1>書籍 <span>清單</span></h1>
+  <h1>閱讀 <span>清單</span></h1>
 
 
   <!-- ==========================================
@@ -57,8 +58,7 @@
     <!-- 搜尋欄：圖示以 .ico span 絕對定位在輸入框左側 -->
     <div class="search-wrap">
       <span class="ico">🔍</span>
-      <input id="searchInput" type="text" placeholder="搜尋書名、作者、類別…" oninput="applyFilter()" <!-- 每次鍵入立即篩選 -->
-      >
+      <input id="searchInput" type="text" placeholder="搜尋書名、作者、類別…" oninput="applyFilter()"><!-- 每次鍵入立即篩選 -->
     </div>
 
     <!-- 狀態篩選下拉選單；value="" 代表「不限狀態」 -->
